@@ -1,9 +1,0 @@
-{
-  "client": "psg",
-  "region": "au-west",
-  "environment": "prod",
-  "component": "worker",
-  "log_type": "metrics_raw",
-  "loki_url": "https://loki.psg.net.au/loki/api/v1/push",
-  "pushgateway_url_base": "https://pushgateway.psg.net.au/metrics/job"
-}
