@@ -3,13 +3,18 @@
 	<Package Id="ArgusTelemetryInstaller"
 			 Name="PSG - Argus Telemetry Installer"
 			 Manufacturer="PSG"
-			 Version="1.0.0.0"
+			 Version="1.1.0.0"
 			 Language="1033"
-			 UpgradeCode="4D590AF7-A923-4559-A6A5-ACCC1E0AD7AB">
+			 UpgradeCode="4D590AF7-A923-4559-A6A5-ACCC1E0AD7AB"
+			 >
+		<Property Id="ARPPRODUCTICON" Value="argus_icon.ico" />
+		<Icon Id="argus_icon.ico" SourceFile="argus_icon.ico" />
 
-		<MajorUpgrade DowngradeErrorMessage="A newer version is already installed." />
+		<MajorUpgrade DowngradeErrorMessage="A newer version is already installed." 
+					  Schedule="afterInstallInitialize"
+					  AllowSameVersionUpgrades="yes"
+					  />
 		<Media Id="1" Cabinet="media1.cab" EmbedCab="yes" />
-
 		<Feature Id="MainFeature" Title="PSG - Argus Telemetry" Level="1">
 			<ComponentGroupRef Id="ArgusTelemetryComponents" />
 		</Feature>
@@ -38,6 +43,9 @@
 				<File Id="R3CertFile"
 					  Source="$(var.PublishDir)\r3.crt"
 					  Name="r3.crt"
+					  KeyPath="no" />
+				<File Id="ConfigFile"
+					  Source="$(var.PublishDir)\config.json"
 					  KeyPath="no" />
 
 				<ServiceInstall

@@ -3,6 +3,15 @@
     <DefineConstants>PublishDir=C:\Users\Sonder\source\repos\psg-argus-app\PublishDir</DefineConstants>
   </PropertyGroup>
   <ItemGroup>
+    <Content Include="argus_icon.ico" />
+  </ItemGroup>
+  <ItemGroup>
     <ProjectReference Include="..\ArgusTelemetry.Shared\ArgusTelemetry.Shared.csproj" />
   </ItemGroup>
+	<PropertyGroup>
+		<ProductVersion>1.1.0.0</ProductVersion>
+		<!-- Update this per build -->
+		<OutputName>ArgusTelemetry_$(ProductVersion)</OutputName>
+	</PropertyGroup>
+
 </Project>
