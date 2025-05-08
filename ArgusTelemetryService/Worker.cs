@@ -13,10 +13,6 @@ using Prometheus;
 using System.Net.NetworkInformation;
 
 
-
-
-
-
 namespace TelemetryWorkerService
 {
     public class Worker : BackgroundService
@@ -44,10 +40,7 @@ namespace TelemetryWorkerService
         private static readonly Gauge NetInGauge = Metrics.CreateGauge("telemetry_net_in_bps", "Bytes received per second", new[] { "interface" });
         private static readonly Gauge NetOutGauge = Metrics.CreateGauge("telemetry_net_out_bps", "Bytes sent per second", new[] { "interface" });
 
-
-
-
-
+        private AppConfig _config = new();
 
         private async Task PushToLoki(string logLine)
         {
@@ -56,36 +49,27 @@ namespace TelemetryWorkerService
             var payload = new
             {
                 streams = new[]
-                {
-            new
+    {
+        new
+        {
+            stream = new
             {
-                stream = new
-                {
-                    job = "telemetry",
-                    host = Environment.MachineName,
-                    client = "psg",           // <-- replace or parameterize as needed
-                    region = "au-west",       // <-- replace or detect dynamically
-                    env = "prod",             // "dev", "test", etc.
-                    component = "worker",     // e.g., telemetry agent, sensor, forwarder
-                    log_type = "metrics_raw"  // tag for downstream parsing
-                },
-                values = new[]
-                {
-                    new[]
-                    {
-                        timestampNs.ToString(),
-                        logLine
-                    }
-                }
-            }
+                job = "telemetry",
+                host = Environment.MachineName,
+                client = _config.Client,
+                region = _config.Region,
+                env = _config.Environment,
+                component = _config.Component,
+                log_type = _config.LogType
+            },
+            values = new[] { new[] { timestampNs.ToString(), logLine } }
         }
+    }
             };
 
-            var response = await _httpClient.PostAsJsonAsync("https://loki.psg.net.au/loki/api/v1/push", payload);
+            var response = await _httpClient.PostAsJsonAsync(_config.LokiUrl, payload);
             response.EnsureSuccessStatusCode(); // log otherwise
         }
-
-
 
         private void InitializeNetworkCounters()
         {
@@ -128,7 +112,6 @@ namespace TelemetryWorkerService
             }
         }
 
-
         private float GetPhysicalMemoryMb()
         {
             using var searcher = new ManagementObjectSearcher("SELECT TotalVisibleMemorySize FROM Win32_OperatingSystem");
@@ -142,7 +125,6 @@ namespace TelemetryWorkerService
             return 1; // fallback
         }
 
-
         protected override async Task ExecuteAsync(CancellationToken stoppingToken)
         {
             try
@@ -152,6 +134,28 @@ namespace TelemetryWorkerService
 
                 File.AppendAllText(testPath, $"Worker started at {DateTime.Now}\n");
 
+                string configPath = Path.Combine(AppContext.BaseDirectory, "config.json");
+                if (File.Exists(configPath))
+                {
+                    try
+                    {
+                        var configJson = await File.ReadAllTextAsync(configPath, stoppingToken);
+                        var parsed = JsonSerializer.Deserialize<AppConfig>(configJson);
+                        if (parsed != null)
+                        {
+                            _config = parsed;
+                            Log.Information("Loaded configuration from config.json");
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        Log.Warning(ex, "Failed to load config.json, using defaults.");
+                    }
+                }
+                else
+                {
+                    Log.Warning("No config.json found, using default values.");
+                }
                 InitializeNetworkCounters();
                 Log.Information("Initialized network counters for all interfaces.");
 
@@ -323,24 +327,41 @@ namespace TelemetryWorkerService
 
         private async Task PushMetricsToGateway()
         {
-            var job = "telemetry_worker";
-            var instance = Environment.MachineName;
-            var url = $"https://pushgateway.psg.net.au/metrics/job/{job}/instance/{instance}";
+            string job = _config.Component ?? "telemetry_worker"; // fallback
+            string instance = Environment.MachineName;
+
+            if (string.IsNullOrWhiteSpace(_config.PushGatewayUrlBase))
+            {
+                Log.Warning("PushGateway URL base not set in config.");
+                return;
+            }
+
+            string url = $"{_config.PushGatewayUrlBase}/{job}/instance/{instance}";
 
             using var httpClient = new HttpClient();
             using var stream = new MemoryStream();
 
-            // This writes directly to the Stream, not a StreamWriter
             await Metrics.DefaultRegistry.CollectAndExportAsTextAsync(stream);
             stream.Position = 0;
 
             var content = new StreamContent(stream);
             content.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue("text/plain");
 
-            var response = await httpClient.PostAsync(url, content);
-            if (!response.IsSuccessStatusCode)
+            try
             {
-                Log.Warning("PushGateway push failed: {Status}", response.StatusCode);
+                var response = await httpClient.PostAsync(url, content);
+                if (!response.IsSuccessStatusCode)
+                {
+                    Log.Warning("PushGateway push failed: {Status}", response.StatusCode);
+                }
+                else
+                {
+                    Log.Information("Metrics pushed to {Url}", url);
+                }
+            }
+            catch (Exception ex)
+            {
+                Log.Error(ex, "Error pushing metrics to PushGateway.");
             }
         }
 
@@ -408,5 +429,15 @@ namespace TelemetryWorkerService
         }
 
 
+    }
+    public class AppConfig
+    {
+        public string Client { get; set; } = "default";
+        public string Region { get; set; } = "default-region";
+        public string Environment { get; set; } = "dev";
+        public string Component { get; set; } = "worker";
+        public string LogType { get; set; } = "metrics_raw";
+        public string LokiUrl { get; set; } = "";
+        public string PushGatewayUrlBase { get; set; } = "";
     }
 }

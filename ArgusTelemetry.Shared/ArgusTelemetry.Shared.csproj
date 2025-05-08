@@ -6,10 +6,6 @@
     <Nullable>enable</Nullable>
   </PropertyGroup>
 
-  <ItemGroup>
-    <Folder Include="Resources\" />
-  </ItemGroup>
-
 	<ItemGroup>
 		<None Include="Resources\r3.crt">
 			<Pack>False</Pack>
