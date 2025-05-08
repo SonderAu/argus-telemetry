@@ -364,3 +364,5 @@ FodyWeavers.xsd
 /ArgusTelemetry.Shared/Resources/r3.crt
 /PublishDir/Resources/r3.crt
 /PublishDir
+/ArgusTelemetryService/config.json
+/ArgusTelemetryService/config.local.json
