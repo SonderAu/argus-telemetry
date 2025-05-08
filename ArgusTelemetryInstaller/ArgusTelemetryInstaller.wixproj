@@ -1,0 +1,8 @@
+﻿<Project Sdk="WixToolset.Sdk/6.0.0">
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <DefineConstants>PublishDir=C:\Users\Sonder\source\repos\psg-argus-app\PublishDir</DefineConstants>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\ArgusTelemetry.Shared\ArgusTelemetry.Shared.csproj" />
+  </ItemGroup>
+</Project>

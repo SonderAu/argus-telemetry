@@ -361,3 +361,6 @@ MigrationBackup/
 
 # Fody - auto-generated XML schema
 FodyWeavers.xsd
+/ArgusTelemetry.Shared/Resources/r3.crt
+/PublishDir/Resources/r3.crt
+/PublishDir

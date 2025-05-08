@@ -1,0 +1,95 @@
+﻿<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs">
+
+	<Package Id="ArgusTelemetryInstaller"
+			 Name="PSG - Argus Telemetry Installer"
+			 Manufacturer="PSG"
+			 Version="1.0.0.0"
+			 Language="1033"
+			 UpgradeCode="4D590AF7-A923-4559-A6A5-ACCC1E0AD7AB">
+
+		<MajorUpgrade DowngradeErrorMessage="A newer version is already installed." />
+		<Media Id="1" Cabinet="media1.cab" EmbedCab="yes" />
+
+		<Feature Id="MainFeature" Title="PSG - Argus Telemetry" Level="1">
+			<ComponentGroupRef Id="ArgusTelemetryComponents" />
+		</Feature>
+
+	</Package>
+
+	<!-- Directory structure -->
+	<Fragment>
+		<StandardDirectory Id="ProgramFiles64Folder">
+			<Directory Id="INSTALLFOLDER" Name="PSG">
+				<Directory Id="AppFolder" Name="ArgusTelemetry">
+					<Directory Id="LogsFolder" Name="Logs" />
+				</Directory>
+			</Directory>
+		</StandardDirectory>
+	</Fragment>
+
+	<!-- App binaries and service -->
+	<Fragment>
+		<ComponentGroup Id="ArgusTelemetryComponents">
+
+			<Component Id="ArgusTelemetryServiceComponent" Guid="*" Directory="AppFolder">
+				<File Id="ArgusTelemetryServiceExe"
+					  Source="$(var.PublishDir)\ArgusTelemetryService.exe"
+					  KeyPath="yes" />
+				<File Id="R3CertFile"
+					  Source="$(var.PublishDir)\r3.crt"
+					  Name="r3.crt"
+					  KeyPath="no" />
+
+				<ServiceInstall
+				  Id="ArgusTelemetryServiceInstaller"
+				  Name="PSG - Argus Telemetry"
+				  DisplayName="PSG - Argus Telemetry"
+				  Description="Monitors and reports telemetry metrics from client systems"
+				  Start="auto"
+				  Type="ownProcess"
+				  ErrorControl="normal" />
+
+				<ServiceControl
+				  Id="ArgusTelemetryServiceControl"
+				  Name="PSG - Argus Telemetry"
+				  Start="install"
+				  Stop="both"
+				  Remove="uninstall"
+				  Wait="yes" />
+			</Component>
+
+			<Component Id="LogsFolderComponent" Guid="B6C0A310-AC89-4F52-B15F-6548ED9130D4" Directory="LogsFolder">
+				<CreateFolder />
+			</Component>
+
+		</ComponentGroup>
+	</Fragment>
+
+	<!-- 🔐 Custom action logic in a separate fragment -->
+	<Fragment>
+
+		<!-- Set CustomActionData property for the deferred action -->
+		<SetProperty Id="AddR3Cert"
+					 Value='certutil -addstore -f "CA" "[AppFolder]r3.crt"'
+					 After="InstallFiles"
+					 Condition="NOT Installed" />
+
+		<!-- Run certutil via CAQuietExec -->
+		<CustomAction Id="AddR3Cert"
+					  BinaryRef="WixCA"
+					  DllEntry="CAQuietExec"
+					  Execute="deferred"
+					  Return="check"
+					  Impersonate="no" />
+
+		<!-- Schedule custom action -->
+		<InstallExecuteSequence>
+			<Custom Action="AddR3Cert" After="SetProperty_AddR3Cert" Condition="NOT Installed" />
+		</InstallExecuteSequence>
+
+	</Fragment>
+
+
+
+
+</Wix>

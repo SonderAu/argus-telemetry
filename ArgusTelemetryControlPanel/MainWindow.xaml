@@ -1,0 +1,57 @@
+﻿<Window x:Class="TelemetryControlPanel.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Loaded="Window_Loaded"
+        Title="Telemetry Control Panel" Height="600" Width="900">
+    <Grid Margin="20">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="200"/>
+        </Grid.RowDefinitions>
+
+        <!-- Status + Buttons -->
+        <StackPanel Orientation="Horizontal" Margin="0,0,0,10" VerticalAlignment="Top" Grid.Row="0" HorizontalAlignment="Left">
+            <TextBlock x:Name="StatusText" FontSize="16" VerticalAlignment="Center" Margin="0,0,20,0"/>
+            <Button Content="Start Service" Width="120" Click="StartService_Click" Margin="0,0,10,0"/>
+            <Button Content="Stop Service" Width="120" Click="StopService_Click" Margin="0,0,10,0"/>
+            <Button Content="Refresh Logs" Width="120" Click="RefreshLogs_Click"/>
+        </StackPanel>
+
+        <!-- Metrics Panel -->
+        <Grid Grid.Row="1">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="2*"/>
+                <ColumnDefinition Width="3*"/>
+            </Grid.ColumnDefinitions>
+
+            <!-- System Metrics -->
+            <StackPanel Grid.Column="0">
+                <TextBlock x:Name="CpuLabel" FontSize="16" Margin="0,5"/>
+                <TextBlock x:Name="MemLabel" FontSize="16" Margin="0,5"/>
+                <TextBlock x:Name="DiskReadLabel" FontSize="16" Margin="0,5"/>
+                <TextBlock x:Name="DiskWriteLabel" FontSize="16" Margin="0,5"/>
+            </StackPanel>
+
+            <!-- Network Adapters Table -->
+            <GroupBox Header="Network Interfaces" FontWeight="Bold" Grid.Column="1" Margin="20,0,0,0">
+                <ListView x:Name="NicStatsListView" BorderThickness="0">
+                    <ListView.View>
+                        <GridView>
+                            <GridViewColumn Header="Interface" DisplayMemberBinding="{Binding Interface}" Width="200"/>
+                            <GridViewColumn Header="Bytes In/s" DisplayMemberBinding="{Binding In}" Width="120"/>
+                            <GridViewColumn Header="Bytes Out/s" DisplayMemberBinding="{Binding Out}" Width="120"/>
+                        </GridView>
+                    </ListView.View>
+                </ListView>
+            </GroupBox>
+        </Grid>
+
+        <!-- Logs -->
+        <GroupBox Header="Log Output" FontWeight="Bold" Grid.Row="2" Margin="0,10,0,0">
+            <ScrollViewer>
+                <TextBox Name="LogsTextBox" IsReadOnly="True" TextWrapping="Wrap" VerticalScrollBarVisibility="Auto"/>
+            </ScrollViewer>
+        </GroupBox>
+    </Grid>
+</Window>
