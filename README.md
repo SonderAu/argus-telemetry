@@ -1,39 +1,80 @@
-## PSG - Argus Telemetry
+# PSG Argus Telemetry
 
-The Telemetry Worker Service is a Windows background service designed to collect, buffer, and forward detailed system performance telemetry to multiple destinations for monitoring and analysis.
+A modular system for collecting and managing Windows-based system telemetry in real-time. Built with scalability, secure deployment, and observability in mind.
+
+---
+
+## 📚 Glossary
+
+- [Telemetry Service](#telemetry-service)
+- [Installer (MSI)](#installer-msi)
+- [Control Panel](#control-panel-ui-coming-soon)
+
+---
+
+## 🛰️ Telemetry Service
+
+The **TelemetryWorkerService** is a .NET 8 Windows service that collects, buffers, and exports system resource metrics.
 
 ### Key Features
 
-- **Performance Metrics Collection**
-  - Captures CPU usage, memory utilization, disk I/O (read/write), and network throughput per interface using `PerformanceCounter`.
-  - Uses friendly interface names for clarity in metrics (e.g., "Ethernet" instead of raw adapter description).
+- **Metric Collection**: Uses `PerformanceCounter` to gather:
+  - CPU usage
+  - Memory usage (available, used percent)
+  - Disk I/O (read/write in B/s)
+  - Network I/O (per interface, in B/s)
 
-- **Prometheus Integration**
-  - Exposes metrics as Prometheus gauges for scraping or export.
-  - Pushes collected metrics to a Prometheus PushGateway endpoint on a scheduled interval.
+- **Prometheus Support**:
+  - Metrics exported to PushGateway via HTTP
+  - Prometheus-compliant `Gauge` metrics with labels
 
-- **Loki Logging Integration**
-  - Serializes each performance snapshot into JSON and sends it to Grafana Loki for long-term storage and querying.
-  - Includes structured log labels like `job`, `host`, `region`, and `component`.
+- **Loki Logging**:
+  - JSON snapshots pushed to Grafana Loki for historical logs
+  - Label-enriched streams (e.g., job, region, component)
 
-- **Buffered File-Based Persistence**
-  - Snapshots are temporarily stored in a buffer and flushed to disk (`telemetry_buffered.jsonl`) periodically.
-  - Ensures resilience in case of remote collector unavailability.
+- **Buffering & Resilience**:
+  - Snapshots collected every 2 seconds
+  - Flushed to disk and remote endpoints every 10 seconds or 20 items
+  - Secure file wipe and cleanup
 
-- **Named Pipe IPC**
-  - Streams live telemetry snapshots via a named pipe (`TelemetryPipe`) to a connected WPF control panel or any compatible client.
+- **IPC for UI Clients**:
+  - Named pipe server (`TelemetryPipe`) streams snapshots in real time to a WPF or Electron frontend
 
-- **Secure Deletion & Cleanup**
-  - Ensures temporary files are cleared after upload to prevent local data accumulation.
+---
 
-### Architecture Overview
+## 📦 Installer (MSI)
 
-- Runs continuously as a `.NET 8` `BackgroundService`.
-- Starts with a warm-up phase and initializes counters.
-- Collects and enqueues snapshots every 2 seconds.
-- Flushes data every 10 seconds or when a buffer threshold is met.
+The **Argus Telemetry Installer** is a WiX v4-based MSI installer that deploys the telemetry service with minimal user interaction.
 
-### Intended Use
+### Structure
 
-Designed to be deployed as part of the **PSG Oversight** system for real-time visibility into device resource usage across managed environments.
+- Installs to: C:\Program Files\PSG\ArgusTelemetry\
+- - Creates a writable `Logs` subfolder for buffered snapshots
+
+### Service Registration
+
+- Registers as `PSG - Argus Telemetry` running as a standalone service (`ownProcess`)
+- Automatically starts post-install and stops/removes cleanly on uninstall
+
+### Custom Actions
+
+- Installs a root certificate (`r3.crt`) into the local machine CA store using `certutil`
+- Executed silently during installation via `CAQuietExec`
+
+### Upgrade Logic
+
+- Uses `UpgradeCode` to ensure clean version upgrades
+- Prevents downgrades with a clear error message
+
+### MSI XML Snippet (Excerpt)
+
+```xml
+<ServiceInstall
+Id="ArgusTelemetryServiceInstaller"
+Name="PSG - Argus Telemetry"
+DisplayName="PSG - Argus Telemetry"
+Description="Monitors and reports telemetry metrics from client systems"
+Start="auto"
+Type="ownProcess"
+ErrorControl="normal" />
 
