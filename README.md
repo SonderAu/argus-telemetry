@@ -14,6 +14,13 @@ A modular system for collecting and managing Windows-based system telemetry in r
 
 ---
 
+## 🛠️ Requirements
+
+- Windows 10/11 or Server 2016+
+- .NET 8 Runtime
+- Administrator privileges to install the MSI
+
+
 ## 🛰️ Telemetry Service
 
 The **TelemetryWorkerService** is a .NET 8 Windows service that collects, buffers, and exports system performance metrics.
@@ -112,12 +119,15 @@ The **TelemetryControlPanel** is a WPF desktop application that allows users to 
 
 ## 🔐 Security & Privacy
 
-- **Anonymized Telemetry**:
-  - No hostnames, usernames, or PII are sent—only performance metrics
+- **Minimal Identifiers:**:
+  - Hostnames (Environment.MachineName) are included for correlation but can be hashed or anonymized if needed
 - **Encrypted Transmission**:
   - Loki and PushGateway endpoints are accessed via HTTPS
 - **Transient Local Storage**:
-  - All on-disk logs are cleared after upload
+  - Snapshots flushed to disk are securely deleted after upload
+- **No Usernames or PII**:
+  - The telemetry contains no user accounts, file paths, or identifiable data beyond hostname
+
 
 ---
 
@@ -133,8 +143,3 @@ The **TelemetryControlPanel** is a WPF desktop application that allows users to 
 
 ---
 
-## 🛠️ Requirements
-
-- Windows 10/11 or Server 2016+
-- .NET 8 Runtime
-- Administrator privileges to install the MSI
