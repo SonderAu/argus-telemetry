@@ -135,6 +135,11 @@ namespace TelemetryWorkerService
                 File.AppendAllText(testPath, $"Worker started at {DateTime.Now}\n");
 
                 string configPath = Path.Combine(AppContext.BaseDirectory, "config.json");
+                if (!File.Exists(configPath))
+                {
+                    configPath = Path.Combine(AppContext.BaseDirectory, "config.local.json");
+                }
+
                 if (File.Exists(configPath))
                 {
                     try

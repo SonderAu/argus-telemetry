@@ -1,0 +1,9 @@
+{
+  "client": "",
+  "region": "",
+  "environment": "",
+  "component": "",
+  "log_type": "",
+  "loki_url": "",
+  "pushgateway_url_base": ""
+}
