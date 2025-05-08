@@ -6,75 +6,135 @@ A modular system for collecting and managing Windows-based system telemetry in r
 
 ## 📚 Glossary
 
-- [Telemetry Service](#telemetry-service)
-- [Installer (MSI)](#installer-msi)
-- [Control Panel](#control-panel-ui-coming-soon)
+- [Telemetry Service](#️-telemetry-service)
+- [Installer (MSI)](#-installer-msi)
+- [Control Panel UI](#️-control-panel-ui)
+- [Security & Privacy](#-security--privacy)
+- [Architecture Overview](#-architecture-overview)
 
 ---
 
 ## 🛰️ Telemetry Service
 
-The **TelemetryWorkerService** is a .NET 8 Windows service that collects, buffers, and exports system resource metrics.
+The **TelemetryWorkerService** is a .NET 8 Windows service that collects, buffers, and exports system performance metrics.
 
 ### Key Features
 
-- **Metric Collection**: Uses `PerformanceCounter` to gather:
+- **Metric Collection**:
   - CPU usage
   - Memory usage (available, used percent)
   - Disk I/O (read/write in B/s)
-  - Network I/O (per interface, in B/s)
+  - Network I/O per interface (B/s)
 
-- **Prometheus Support**:
-  - Metrics exported to PushGateway via HTTP
-  - Prometheus-compliant `Gauge` metrics with labels
+- **Prometheus Integration**:
+  - Pushes metrics to a Prometheus PushGateway
+  - Includes labeled gauges using Prometheus.NET
 
 - **Loki Logging**:
-  - JSON snapshots pushed to Grafana Loki for historical logs
-  - Label-enriched streams (e.g., job, region, component)
+  - Sends serialized JSON snapshots to Grafana Loki
+  - Includes metadata such as host, region, and component for filtering
 
-- **Buffering & Resilience**:
-  - Snapshots collected every 2 seconds
-  - Flushed to disk and remote endpoints every 10 seconds or 20 items
-  - Secure file wipe and cleanup
+- **Buffered & Resilient**:
+  - Stores telemetry snapshots in a memory buffer
+  - Flushes to disk every 10 seconds or 20 entries
+  - Uploads flushed data to remote targets, then securely deletes the local file
 
-- **IPC for UI Clients**:
-  - Named pipe server (`TelemetryPipe`) streams snapshots in real time to a WPF or Electron frontend
+- **Named Pipe Server**:
+  - Streams live telemetry via a `TelemetryPipe` to a UI client (like the Control Panel)
 
 ---
 
 ## 📦 Installer (MSI)
 
-The **Argus Telemetry Installer** is a WiX v4-based MSI installer that deploys the telemetry service with minimal user interaction.
+The **Argus Telemetry Installer** is built using WiX v4 and provides a silent, secure deployment of the service.
 
 ### Structure
 
-- Installs to: C:\Program Files\PSG\ArgusTelemetry\
-- - Creates a writable `Logs` subfolder for buffered snapshots
+- Installs to:  
+  `C:\Program Files\PSG\ArgusTelemetry\`
+- Creates a `Logs` folder for buffered output:  
+  `C:\Program Files\PSG\ArgusTelemetry\Logs\`
 
 ### Service Registration
 
-- Registers as `PSG - Argus Telemetry` running as a standalone service (`ownProcess`)
-- Automatically starts post-install and stops/removes cleanly on uninstall
+- Registers the service as:  
+  `PSG - Argus Telemetry`
+- Starts automatically on install and stops/removes on uninstall
 
-### Custom Actions
+### Certificate Installation
 
-- Installs a root certificate (`r3.crt`) into the local machine CA store using `certutil`
-- Executed silently during installation via `CAQuietExec`
+- Installs `r3.crt` into the trusted CA store using `certutil`
+- Executes via a WiX custom action (`CAQuietExec`)
 
 ### Upgrade Logic
 
-- Uses `UpgradeCode` to ensure clean version upgrades
-- Prevents downgrades with a clear error message
+- Uses `UpgradeCode` for proper versioning
+- Prevents downgrades with a clear message
 
 ### MSI XML Snippet (Excerpt)
 
 ```xml
 <ServiceInstall
-Id="ArgusTelemetryServiceInstaller"
-Name="PSG - Argus Telemetry"
-DisplayName="PSG - Argus Telemetry"
-Description="Monitors and reports telemetry metrics from client systems"
-Start="auto"
-Type="ownProcess"
-ErrorControl="normal" />
+  Id="ArgusTelemetryServiceInstaller"
+  Name="PSG - Argus Telemetry"
+  DisplayName="PSG - Argus Telemetry"
+  Description="Monitors and reports telemetry metrics from client systems"
+  Start="auto"
+  Type="ownProcess"
+  ErrorControl="normal" />
+```
 
+---
+
+## 🖥️ Control Panel UI
+
+The **TelemetryControlPanel** is a WPF desktop application that allows users to visualize and control the telemetry service in real-time.
+
+### Key Features
+
+- **Service Control**:
+  - Start and stop the telemetry service using `ServiceController`
+  - Polls service status every 5 seconds and updates UI
+
+- **Live Telemetry View**:
+  - Connects to `TelemetryPipe` and listens for real-time JSON snapshots
+  - Displays CPU, memory, disk, and per-interface network stats
+
+- **Log Viewer**:
+  - Loads the latest log file from `C:\Logs\`
+  - Automatically appends pipe activity and deserialization events to a log textbox
+
+- **Fail-Safe Handling**:
+  - Handles disconnection from the pipe and retries connection
+  - Catches all exceptions and logs them visibly for troubleshooting
+
+---
+
+## 🔐 Security & Privacy
+
+- **Anonymized Telemetry**:
+  - No hostnames, usernames, or PII are sent—only performance metrics
+- **Encrypted Transmission**:
+  - Loki and PushGateway endpoints are accessed via HTTPS
+- **Transient Local Storage**:
+  - All on-disk logs are cleared after upload
+
+---
+
+## 📡 Architecture Overview
+
+```text
+[Device Performance Counters] → [TelemetryWorkerService]
+     ↘ Named Pipe (UI)
+     ↘ Disk Buffer (jsonl)
+     ↘ Prometheus PushGateway
+     ↘ Grafana Loki (structured logs)
+```
+
+---
+
+## 🛠️ Requirements
+
+- Windows 10/11 or Server 2016+
+- .NET 8 Runtime
+- Administrator privileges to install the MSI
