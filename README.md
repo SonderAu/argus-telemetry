@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="https://raw.githubusercontent.com/SonderAu/private-assets/refs/heads/main/logo.png" alt="PSG Argus Logo" width="200"/>
+  <img src="https://github.com/SonderAu/psg-argus-app/blob/e9ebda4b85baea38da34223ff33cb81e4065f34f/ArgusTelemetry.Shared/Resources/logo_with_title.png" alt="PSG Argus Logo" width="200"/>
 </p>
 
 
