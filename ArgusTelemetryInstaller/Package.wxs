@@ -3,7 +3,7 @@
 	<Package Id="ArgusTelemetryInstaller"
 			 Name="PSG - Argus Telemetry Installer"
 			 Manufacturer="PSG"
-			 Version="1.1.0.0"
+			 Version="1.1.8.0"
 			 Language="1033"
 			 UpgradeCode="4D590AF7-A923-4559-A6A5-ACCC1E0AD7AB"
 			 >

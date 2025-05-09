@@ -29,46 +29,77 @@ namespace TelemetryWorkerService
 
         private readonly ConcurrentQueue<PerformanceSnapshot> _snapshotBuffer = new();
         private readonly TimeSpan _flushInterval = TimeSpan.FromSeconds(10);
-        private readonly int _bufferThreshold = 20;
         private Timer? _flushTimer;
 
         private static readonly HttpClient _httpClient = new HttpClient();
-        private static readonly Gauge CpuGauge = Metrics.CreateGauge("telemetry_cpu_usage_percent", "CPU usage in percent");
-        private static readonly Gauge MemGauge = Metrics.CreateGauge("telemetry_memory_used_percent", "Memory usage in percent");
-        private static readonly Gauge DiskReadGauge = Metrics.CreateGauge("telemetry_disk_read_bps", "Disk read in bytes/sec");
-        private static readonly Gauge DiskWriteGauge = Metrics.CreateGauge("telemetry_disk_write_bps", "Disk write in bytes/sec");
-        private static readonly Gauge NetInGauge = Metrics.CreateGauge("telemetry_net_in_bps", "Bytes received per second", new[] { "interface" });
-        private static readonly Gauge NetOutGauge = Metrics.CreateGauge("telemetry_net_out_bps", "Bytes sent per second", new[] { "interface" });
+
+        private readonly Dictionary<string, Gauge.Child> _cpuGaugeMap = new();
+        private readonly Dictionary<string, Gauge.Child> _memGaugeMap = new();
+        private readonly Dictionary<string, Gauge.Child> _diskReadGaugeMap = new();
+        private readonly Dictionary<string, Gauge.Child> _diskWriteGaugeMap = new();
+        private readonly Dictionary<string, Gauge.Child> _netInGaugeMap = new();
+        private readonly Dictionary<string, Gauge.Child> _netOutGaugeMap = new();
+
+        private static readonly Gauge CpuGauge = Metrics.CreateGauge("telemetry_cpu_usage_percent", "CPU usage in percent", new[] { "client", "region", "env", "instance" });
+        private static readonly Gauge MemGauge = Metrics.CreateGauge("telemetry_memory_used_percent", "Memory usage in percent", new[] { "client", "region", "env", "instance" });
+        private static readonly Gauge DiskReadGauge = Metrics.CreateGauge("telemetry_disk_read_bps", "Disk read in bytes/sec", new[] { "client", "region", "env", "instance" });
+        private static readonly Gauge DiskWriteGauge = Metrics.CreateGauge("telemetry_disk_write_bps", "Disk write in bytes/sec", new[] { "client", "region", "env", "instance" });
+        private static readonly Gauge NetInGauge = Metrics.CreateGauge("telemetry_net_in_bps", "Bytes received per second", new[] { "interface", "client", "region", "env", "instance" });
+        private static readonly Gauge NetOutGauge = Metrics.CreateGauge("telemetry_net_out_bps", "Bytes sent per second", new[] { "interface", "client", "region", "env", "instance" });
 
         private AppConfig _config = new();
 
+        private void InitializeMetricLabelSets()
+        {
+            string[] labels = { _config.Client, _config.Region, _config.Environment, Environment.MachineName };
+            string labelKey = string.Join("|", labels);
+
+            _cpuGaugeMap[labelKey] = CpuGauge.WithLabels(labels);
+            _memGaugeMap[labelKey] = MemGauge.WithLabels(labels);
+            _diskReadGaugeMap[labelKey] = DiskReadGauge.WithLabels(labels);
+            _diskWriteGaugeMap[labelKey] = DiskWriteGauge.WithLabels(labels);
+        }
+
         private async Task PushToLoki(string logLine)
         {
+            if (string.IsNullOrWhiteSpace(_config.LokiUrl))
+            {
+                Log.Warning("Loki URL not configured, skipping log push.");
+                return;
+            }
+
             var timestampNs = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() * 1_000_000;
 
             var payload = new
             {
                 streams = new[]
-    {
-        new
-        {
-            stream = new
+                {
+            new
             {
-                job = "telemetry",
-                host = Environment.MachineName,
-                client = _config.Client,
-                region = _config.Region,
-                env = _config.Environment,
-                component = _config.Component,
-                log_type = _config.LogType
-            },
-            values = new[] { new[] { timestampNs.ToString(), logLine } }
+                stream = new
+                {
+                    job = _config.Component,
+                    host = Environment.MachineName,
+                    client = _config.Client,
+                    region = _config.Region,
+                    env = _config.Environment,
+                    component = _config.Component,
+                    log_type = _config.LogType
+                },
+                values = new[] { new[] { timestampNs.ToString(), logLine } }
+            }
         }
-    }
             };
 
-            var response = await _httpClient.PostAsJsonAsync(_config.LokiUrl, payload);
-            response.EnsureSuccessStatusCode(); // log otherwise
+            try
+            {
+                var response = await _httpClient.PostAsJsonAsync(_config.LokiUrl, payload);
+                response.EnsureSuccessStatusCode();
+            }
+            catch (Exception ex)
+            {
+                Log.Error(ex, "Error sending telemetry to Loki.");
+            }
         }
 
         private void InitializeNetworkCounters()
@@ -150,7 +181,9 @@ namespace TelemetryWorkerService
                         {
                             _config = parsed;
                             Log.Information("Loaded configuration from config.json");
+                            InitializeMetricLabelSets(); // <- YOU NEED THIS
                         }
+
                     }
                     catch (Exception ex)
                     {
@@ -264,7 +297,6 @@ namespace TelemetryWorkerService
             var tempPath = Path.Combine(AppContext.BaseDirectory, "Logs", "telemetry_buffered.jsonl");
             Directory.CreateDirectory(Path.GetDirectoryName(tempPath)!);
 
-
             int count = 0;
 
             // Collect all current snapshots
@@ -273,20 +305,35 @@ namespace TelemetryWorkerService
             {
                 snapshots.Add(snap);
 
-                // Update metrics
-                CpuGauge.Set(snap.CpuUsage);
-                MemGauge.Set(snap.MemoryUsedPercent);
-                DiskReadGauge.Set(snap.DiskReadBps);
-                DiskWriteGauge.Set(snap.DiskWriteBps);
+                //  Update metrics using labeled .WithLabels() calls
+                CpuGauge
+                    .WithLabels(_config.Client, _config.Region, _config.Environment, Environment.MachineName)
+                    .Set(snap.CpuUsage);
+                MemGauge
+                    .WithLabels(_config.Client, _config.Region, _config.Environment, Environment.MachineName)
+                    .Set(snap.MemoryUsedPercent);
+                DiskReadGauge
+                    .WithLabels(_config.Client, _config.Region, _config.Environment, Environment.MachineName)
+                    .Set(snap.DiskReadBps);
+                DiskWriteGauge
+                    .WithLabels(_config.Client, _config.Region, _config.Environment, Environment.MachineName)
+                    .Set(snap.DiskWriteBps);
 
                 foreach (var kv in snap.NetInBpsByInterface)
-                    NetInGauge.WithLabels(kv.Key).Set(kv.Value);
+                {
+                    NetInGauge
+                        .WithLabels(kv.Key, _config.Client, _config.Region, _config.Environment, Environment.MachineName)
+                        .Set(kv.Value);
+                }
 
                 foreach (var kv in snap.NetOutBpsByInterface)
-                    NetOutGauge.WithLabels(kv.Key).Set(kv.Value);
+                {
+                    NetOutGauge
+                        .WithLabels(kv.Key, _config.Client, _config.Region, _config.Environment, Environment.MachineName)
+                        .Set(kv.Value);
+                }
             }
 
-            // Write all snapshots to file
             try
             {
                 using var stream = new FileStream(tempPath, FileMode.Append, FileAccess.Write, FileShare.ReadWrite);
@@ -310,16 +357,11 @@ namespace TelemetryWorkerService
 
             Log.Information("Wrote {Count} snapshots to disk", count);
 
-            // Upload metrics AFTER file is released
             await PushMetricsToGateway();
 
-            // Secure file deletion
             try
             {
-                // Optional: Zero out contents before deletion (paranoia mode)
                 File.WriteAllText(tempPath, string.Empty);
-
-                // Delete the now-empty file
                 File.Delete(tempPath);
                 Log.Information("Temp file securely deleted after flush.");
             }
@@ -327,12 +369,10 @@ namespace TelemetryWorkerService
             {
                 Log.Warning(ex, "Failed to securely delete temp file after flush.");
             }
-
         }
-
         private async Task PushMetricsToGateway()
         {
-            string job = _config.Component ?? "telemetry_worker"; // fallback
+            string job = _config.Component ?? "telemetry_worker";
             string instance = Environment.MachineName;
 
             if (string.IsNullOrWhiteSpace(_config.PushGatewayUrlBase))
@@ -341,7 +381,8 @@ namespace TelemetryWorkerService
                 return;
             }
 
-            string url = $"{_config.PushGatewayUrlBase}/{job}/instance/{instance}";
+            // Only job and instance
+            string url = $"{_config.PushGatewayUrlBase}/job/{Uri.EscapeDataString(job)}/instance/{Uri.EscapeDataString(instance)}";
 
             using var httpClient = new HttpClient();
             using var stream = new MemoryStream();
@@ -370,6 +411,8 @@ namespace TelemetryWorkerService
             }
         }
 
+
+
         private PerformanceSnapshot CollectSnapshot()
         {
             try
@@ -377,46 +420,56 @@ namespace TelemetryWorkerService
                 float cpu = _cpuCounter?.NextValue() ?? 0;
                 float memFreeMb = _memAvailable?.NextValue() ?? 0;
                 float memUsedPct = 100 - ((memFreeMb / _totalPhysicalMemoryMb) * 100);
-                float memTotalMb = (_memTotal?.NextValue() ?? 1) / 1024f;
+                float diskRead = _diskRead?.NextValue() ?? 0;
+                float diskWrite = _diskWrite?.NextValue() ?? 0;
+
+                string[] baseLabels = { _config.Client, _config.Region, _config.Environment, Environment.MachineName };
+                string baseKey = string.Join("|", baseLabels);
+
+                _cpuGaugeMap[baseKey].Set(cpu);
+                _memGaugeMap[baseKey].Set(memUsedPct);
+                _diskReadGaugeMap[baseKey].Set(diskRead);
+                _diskWriteGaugeMap[baseKey].Set(diskWrite);
+
                 var netIn = new Dictionary<string, float>();
                 var netOut = new Dictionary<string, float>();
 
                 foreach (var counter in _netInCounters)
                 {
-                    var name = _instanceToFriendlyName.TryGetValue(counter.InstanceName, out var friendly)
-                        ? friendly
-                        : counter.InstanceName;
+                    var name = _instanceToFriendlyName.TryGetValue(counter.InstanceName, out var friendly) ? friendly : counter.InstanceName;
+                    var value = (float)Math.Round(counter.NextValue(), 2);
+                    netIn[name] = value;
 
-                    netIn[name] = (float)Math.Round(counter.NextValue(), 2);
+                    string netKey = string.Join("|", name, baseKey);
+                    if (!_netInGaugeMap.ContainsKey(netKey))
+                        _netInGaugeMap[netKey] = NetInGauge.WithLabels(name, _config.Client, _config.Region, _config.Environment, Environment.MachineName);
+
+                    _netInGaugeMap[netKey].Set(value);
                 }
 
                 foreach (var counter in _netOutCounters)
                 {
-                    var name = _instanceToFriendlyName.TryGetValue(counter.InstanceName, out var friendly)
-                        ? friendly
-                        : counter.InstanceName;
+                    var name = _instanceToFriendlyName.TryGetValue(counter.InstanceName, out var friendly) ? friendly : counter.InstanceName;
+                    var value = (float)Math.Round(counter.NextValue(), 2);
+                    netOut[name] = value;
 
-                    netOut[name] = (float)Math.Round(counter.NextValue(), 2);
+                    string netKey = string.Join("|", name, baseKey);
+                    if (!_netOutGaugeMap.ContainsKey(netKey))
+                        _netOutGaugeMap[netKey] = NetOutGauge.WithLabels(name, _config.Client, _config.Region, _config.Environment, Environment.MachineName);
+
+                    _netOutGaugeMap[netKey].Set(value);
                 }
 
-
-                var snapshot = new PerformanceSnapshot
+                return new PerformanceSnapshot
                 {
                     Timestamp = DateTime.UtcNow,
-                    CpuUsage = (float)Math.Round(cpu, 2),
-                    MemoryUsedPercent = (float)Math.Round(memUsedPct, 2),
-                    DiskReadBps = (float)Math.Round(_diskRead?.NextValue() ?? 0, 2),
-                    DiskWriteBps = (float)Math.Round(_diskWrite?.NextValue() ?? 0, 2),
+                    CpuUsage = cpu,
+                    MemoryUsedPercent = memUsedPct,
+                    DiskReadBps = diskRead,
+                    DiskWriteBps = diskWrite,
                     NetInBpsByInterface = netIn,
                     NetOutBpsByInterface = netOut
                 };
-                CpuGauge.Set(snapshot.CpuUsage);
-                MemGauge.Set(snapshot.MemoryUsedPercent);
-                DiskReadGauge.Set(snapshot.DiskReadBps);
-                DiskWriteGauge.Set(snapshot.DiskWriteBps);
-
-
-                return snapshot;
             }
             catch (Exception ex)
             {
@@ -428,10 +481,10 @@ namespace TelemetryWorkerService
                     MemoryUsedPercent = -1,
                     DiskReadBps = -1,
                     DiskWriteBps = -1,
-                    
                 };
             }
         }
+
 
 
     }
