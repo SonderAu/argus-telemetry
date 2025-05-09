@@ -10,6 +10,7 @@
 - [Control Panel UI](#️-control-panel-ui)
 - [Security & Privacy](#-security--privacy)
 - [Architecture Overview](#-architecture-overview)
+- [Uses in Grafana](#-uses-in-grafana)
 
 ---
 
@@ -151,3 +152,10 @@ The **TelemetryControlPanel** is a WPF desktop application that allows users to 
 
 ---
 
+## 📊 Uses in Grafana
+
+<p align="center">
+  <a href="https://github.com/SonderAu/argus-telemetry/blob/a80583ea6b5c23f30a8358a8f77d6fa315e4754c/ArgusTelemetry.Shared/Resources/argus_grafana_dashboard.png">
+    <img src="https://github.com/SonderAu/argus-telemetry/blob/a80583ea6b5c23f30a8358a8f77d6fa315e4754c/ArgusTelemetry.Shared/Resources/argus_grafana_dashboard.png" alt="Grafana dashboard example"/>
+  </a>
+</p>
