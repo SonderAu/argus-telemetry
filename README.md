@@ -1,11 +1,7 @@
 <p align="center">
   <img src="https://raw.githubusercontent.com/SonderAu/private-assets/refs/heads/main/logo.png" alt="PSG Argus Logo" width="200"/>
 </p>
-# PSG Argus Telemetry
 
-A modular system for collecting and managing Windows-based system telemetry in real-time. Built with scalability, secure deployment, and observability in mind.
-
----
 
 ## 📚 Glossary
 
