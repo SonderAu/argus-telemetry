@@ -13,11 +13,20 @@
 
 ---
 
+> ⚠️ **Prerequisite Infrastructure**
+> 
+> This agent assumes you have already deployed:
+> - [Loki](https://github.com/grafana/loki)
+> - [Prometheus](https://github.com/prometheus/prometheus)
+> - [Pushgateway](https://github.com/prometheus/pushgateway)
+> - [Grafana](https://github.com/grafana/grafana)
+
 ## 🛠️ Requirements
 
 - Windows 10/11 or Server 2016+
 - .NET 8 Runtime
 - Administrator privileges to install the MSI
+
 
 
 ## 🛰️ Telemetry Service
