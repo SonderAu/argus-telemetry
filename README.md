@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="https://raw.githubusercontent.com/SonderAu/private-assets/refs/heads/main/logo.png" alt="PSG Argus Logo" width="200"/>
+  <img src="https://github.com/SonderAu/psg-argus-app/blob/e9ebda4b85baea38da34223ff33cb81e4065f34f/ArgusTelemetry.Shared/Resources/logo_with_title.png" alt="PSG Argus Logo" width="200"/>
 </p>
 
 
@@ -10,14 +10,24 @@
 - [Control Panel UI](#️-control-panel-ui)
 - [Security & Privacy](#-security--privacy)
 - [Architecture Overview](#-architecture-overview)
+- [Uses in Grafana](#-uses-in-grafana)
 
 ---
+
+> ⚠️ **Prerequisite Infrastructure**
+> 
+> This agent assumes you have already deployed:
+> - [Loki](https://github.com/grafana/loki)
+> - [Prometheus](https://github.com/prometheus/prometheus)
+> - [Pushgateway](https://github.com/prometheus/pushgateway)
+> - [Grafana](https://github.com/grafana/grafana)
 
 ## 🛠️ Requirements
 
 - Windows 10/11 or Server 2016+
 - .NET 8 Runtime
 - Administrator privileges to install the MSI
+
 
 
 ## 🛰️ Telemetry Service
@@ -142,3 +152,10 @@ The **TelemetryControlPanel** is a WPF desktop application that allows users to 
 
 ---
 
+## 📊 Uses in Grafana
+
+<p align="center">
+  <a href="https://github.com/SonderAu/argus-telemetry/blob/a80583ea6b5c23f30a8358a8f77d6fa315e4754c/ArgusTelemetry.Shared/Resources/argus_grafana_dashboard.png">
+    <img src="https://github.com/SonderAu/argus-telemetry/blob/a80583ea6b5c23f30a8358a8f77d6fa315e4754c/ArgusTelemetry.Shared/Resources/argus_grafana_dashboard.png" alt="Grafana dashboard example"/>
+  </a>
+</p>
