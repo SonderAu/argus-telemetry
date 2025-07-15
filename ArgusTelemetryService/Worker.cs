@@ -197,7 +197,27 @@ namespace TelemetryWorkerService
                 InitializeNetworkCounters();
                 Log.Information("Initialized network counters for all interfaces.");
 
-                _cpuCounter = new("Processor", "% Processor Time", "_Total");
+                try
+                {
+                    if (_config.HyperV)
+                    {
+                        _cpuCounter = new PerformanceCounter("Hyper-V Hypervisor Logical Processor", "% Total Run Time", "_Total");
+                        Log.Information("Using Hyper-V counter.");
+                    }
+                    else
+                    {
+                        _cpuCounter = new PerformanceCounter("Processor", "% Processor Time", "_Total");
+                        Log.Information("Using standard CPU counter.");
+                    }
+                    _cpuCounter.NextValue();
+                    await Task.Delay(1000, stoppingToken);
+                }
+                catch (Exception ex)
+                {
+                    Log.Error(ex, "Failed to initialize CPU counter. Defaulting to standard processor counter.");
+                    _cpuCounter = new PerformanceCounter("Processor", "% Processor Time", "_Total");
+                }
+
                 _cpuCounter.NextValue(); // Warm-up
                 await Task.Delay(1000, stoppingToken); // Give it time
 
@@ -497,5 +517,6 @@ namespace TelemetryWorkerService
         public string LogType { get; set; } = "metrics_raw";
         public string LokiUrl { get; set; } = "";
         public string PushGatewayUrlBase { get; set; } = "";
+        public bool HyperV { get; set; } = false;
     }
 }
